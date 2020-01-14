@@ -1,5 +1,6 @@
-from phi.flow import *
-from .sequences import *
+import os
+from phi.flow import StateProxy, State, struct, CollectiveState
+from .sequences import SeqFrame, PartitioningExecutor, TYPE_KEYFRAME, TYPE_UNKNOWN, LinearSequence
 
 
 class ObservationPredictor(object):
@@ -56,7 +57,7 @@ class PDEExecutor(PartitioningExecutor):
             assert target_frame.worldstate is not None
             predicted_ws = target_frame.worldstate
         target_pred = ws[self.next_state_prediction].copied_with(prediction=predicted_ws)
-        initial_frame.worldstate = ws.with_replacement(target_pred)
+        initial_frame.worldstate = ws.state_replaced(target_pred)
         self.world.state = initial_frame.worldstate
         self.world.step(dt=self.dt)
         self.worldsteps += 1
@@ -72,7 +73,7 @@ class PDEExecutor(PartitioningExecutor):
             assert center_frame.worldstate is not None
             old_state = self.next_state_prediction
             self.next_state_prediction = self.next_state_prediction.copied_with(prediction=center_frame.worldstate)
-            initial_frame.worldstate = self.world.state.state_replaced(old_state, self.next_state_prediction)
+            initial_frame.worldstate = self.world.state.state_replaced(self.next_state_prediction)
 
     def load(self, max_n, checkpoint_dict, preload_n, session, logf):
         # Control Force Estimator (CFE)
@@ -115,9 +116,9 @@ class PDEExecutor(PartitioningExecutor):
 class NextStatePrediction(State):
 
     def __init__(self, prediction, tags=('next_state_prediction',), **kwargs):
-        State.__init__(**struct.kwargs(locals()))
+        State.__init__(self, **struct.kwargs(locals()))
 
-    @struct.attr()
+    @struct.variable()
     def prediction(self, prediction):
         assert prediction is None or isinstance(prediction, CollectiveState)
         return prediction

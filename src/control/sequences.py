@@ -1,6 +1,5 @@
 
 
-
 class PartitioningExecutor(object):
 
     def create_frame(self, index, step_count):
@@ -23,6 +22,7 @@ TYPE_UNKNOWN = 0
 TYPE_PLANNED = 1
 TYPE_REAL = 2
 TYPE_KEYFRAME = 3
+
 
 class SeqFrame(object):
 
@@ -74,8 +74,6 @@ class PartitionedSequence(object):
         return self._frames.__iter__()
 
 
-
-
 class StaggeredSequence(PartitionedSequence):
 
     def __init__(self, step_count, executor):
@@ -122,8 +120,5 @@ class LinearSequence(PartitionedSequence):
         for frame1, frame2 in zip(self._frames[:-1], self._frames[1:]):
             self.leaf_execute(frame1, frame2)
 
-
-
-
-
-# AdaptivePlanSequence(8, PartitioningExecutor()).execute()
+    def branch_execute(self, n, start_frame_index, **kwargs):
+        raise AssertionError()

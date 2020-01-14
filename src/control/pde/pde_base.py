@@ -10,8 +10,8 @@ class PDE(ObservationPredictor):
     def create_pde(self, world, control_trainable, constant_prediction_offset):
         raise NotImplementedError(self)
 
-    def placeholder_state(self, world):
-        return placeholder(world.state.shape)
+    def placeholder_state(self, world, age):
+        raise NotImplementedError(self)
 
     def target_matching_loss(self, target_state, actual_state):
         raise NotImplementedError(self)
@@ -24,6 +24,7 @@ def property_name(trace): return trace.name
 
 
 def collect_placeholders_channels(placeholder_states, trace_to_channel=property_name):
+    if trace_to_channel is None: trace_to_channel = property_name
     placeholders = []
     channels = []
 
@@ -33,5 +34,6 @@ def collect_placeholders_channels(placeholder_states, trace_to_channel=property_
             for trace in traces:
                 if isplaceholder(trace.value):
                     placeholders.append(trace.value)
-                    channels.append(consecutive_frames(trace_to_channel(trace), len(placeholder_states))[i])
+                    channel = trace_to_channel(trace)
+                    channels.append(consecutive_frames(channel, len(placeholder_states))[i])
     return placeholders, tuple(channels)

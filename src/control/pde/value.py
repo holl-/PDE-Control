@@ -18,14 +18,14 @@ class IncrementPDE(PDE):
 
     def create_pde(self, world, control_trainable, constant_prediction_offset):
         world.reset(world.batch_size, add_default_objects=False)
-        self.scalar = ConstantField('scalar', 0.0)
-        world.add(self.scalar)
-        self.effect = FieldEffect(ConstantField('0', 0), ['scalar'], ADD)
+        self.scalar = ConstantField(0.0, name='scalar', flags=())
+        world.add(self.scalar, FieldPhysics(self.scalar.name))
+        self.effect = FieldEffect(ConstantField(0, flags=()), ['scalar'], ADD)
         world.add(self.effect, physics=ScalarEffectControl())
 
-    def placeholder_state(self, world):
-        plstate = placeholder(world.state[self.scalar].shape)
-        return world.state.with_replacement(plstate)
+    def placeholder_state(self, world, age):
+        plstate = placeholder(world.state[self.scalar].copied_with(age=age).shape)
+        return world.state.state_replaced(plstate)
 
     def target_matching_loss(self, target_state, actual_state):
         return None
@@ -37,9 +37,8 @@ class IncrementPDE(PDE):
         return None
 
     def predict(self, n, initial_worldstate, target_worldstate, trainable):
-        v1 = initial_worldstate[self.scalar].data
-        v2 = target_worldstate[self.scalar].data
-        center_age = 0.5*(initial_worldstate.age+target_worldstate.age)
-        new_field = initial_worldstate[self.scalar].with_data((v1 + v2) * 0.5)
-        result = initial_worldstate.with_replacement(new_field).copied_with(age=center_age)
+        s1, s2 = initial_worldstate[self.scalar], target_worldstate[self.scalar]
+        center_age = (s1.age + s2.age) / 2
+        new_field = initial_worldstate[self.scalar].copied_with(data=(s1.data + s2.data) * 0.5, flags=(), age=center_age)
+        result = initial_worldstate.state_replaced(new_field)
         return result

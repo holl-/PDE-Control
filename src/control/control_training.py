@@ -1,8 +1,12 @@
 # coding=utf-8
-from control import *
+from phi.tf.flow import *
+
+from .pde.pde_base import collect_placeholders_channels
+from .sequences import StaggeredSequence, SkipSequence, LinearSequence
+from .hierarchy import PDEExecutor
 
 
-class ControlTraining(TFApp):
+class ControlTraining(LearningApp):
 
     def __init__(self, n, pde, datapath, val_range, train_range,
                  trace_to_channel=None,
@@ -22,9 +26,8 @@ class ControlTraining(TFApp):
         :param sequence_matching:
         :param train_cfe:
         """
-        TFApp.__init__(self, 'Control Training', 'Train PDE control: OP / CFE',
-                         training_batch_size=batch_size, validation_batch_size=batch_size,
-                         learning_rate=learning_rate, stride=50)
+        LearningApp.__init__(self, 'Control Training', 'Train PDE control: OP / CFE',
+                             training_batch_size=batch_size, validation_batch_size=batch_size, learning_rate=learning_rate, stride=50)
         if n <= 1: sequence_matching = False
         diffphys = sequence_class is not None
         if sequence_class is None:
@@ -38,10 +41,10 @@ class ControlTraining(TFApp):
 
         # --- Set up PDE sequence ---
         world = World(batch_size=None); pde.create_pde(world, 'CFE' in trainable_networks, sequence_class!=LinearSequence)  # TODO batch_size=None
-        world.state = state0 = pde.placeholder_state(world)
-        self.add_all_fields('GT', world.state)
-        target_state = pde.placeholder_state(world).copied_with(age=n)
-        self.add_all_fields('GT', target_state)
+        world.state = pde.placeholder_state(world, 0)
+        self.add_all_fields('GT', world.state, 0)
+        target_state = pde.placeholder_state(world, n*dt)
+        self.add_all_fields('GT', target_state, n)
         in_states = [ world.state ] + [None] * (n-1) + [ target_state ]
         for frame in obs_loss_frames:
             if in_states[frame] is None:
@@ -84,16 +87,16 @@ class ControlTraining(TFApp):
             def fetch(i=i): return self.viewed_batch[i]
 
             self.add_field('%s %d' % (channel, i), fetch)
-        for worldstate in all_states:
-            self.add_all_fields('Sim', worldstate)
+        for i, worldstate in enumerate(all_states):
+            self.add_all_fields('Sim', worldstate, i)
         # TODO add loss fields
         for name, field in pde.fields.items():
             self.add_field(name, field)
 
-    def add_all_fields(self, prefix, worldstate):
-        with struct.anytype(): fields = struct.flatten(struct.map(lambda x: x, worldstate, trace=True))
+    def add_all_fields(self, prefix, worldstate, index):
+        with struct.unsafe(): fields = struct.flatten(struct.map(lambda x: x, worldstate, trace=True))
         for field in fields:
-            name = '%s[%02d] %s' % (prefix, worldstate.age / self.dt, field.path())
+            name = '%s[%02d] %s' % (prefix, index, field.path())
             if field.value is not None:
                 self.add_field(name, field.value)
             else:
