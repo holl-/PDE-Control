@@ -40,7 +40,7 @@ class ControlTraining(LearningApp):
         self.dt = dt
 
         # --- Set up PDE sequence ---
-        world = World(batch_size=None); pde.create_pde(world, 'CFE' in trainable_networks, sequence_class!=LinearSequence)  # TODO batch_size=None
+        world = World(batch_size=None); pde.create_pde(world, 'CFE' in trainable_networks, sequence_class!=LinearSequence)  # TODO BATCH_SIZE=None
         world.state = pde.placeholder_state(world, 0)
         self.add_all_fields('GT', world.state, 0)
         target_state = pde.placeholder_state(world, n*dt)

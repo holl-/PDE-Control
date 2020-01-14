@@ -1,4 +1,5 @@
-from .pde_base import *
+from phi.tf.flow import StateDependency, Physics, ConstantField, FieldEffect, FieldPhysics, ADD, placeholder
+from .pde_base import PDE
 
 
 class ScalarEffectControl(Physics):

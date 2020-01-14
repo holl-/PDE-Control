@@ -1,4 +1,4 @@
-from phi.tf.flow import *
+from phi.tf.flow import struct, isplaceholder, consecutive_frames
 from ..hierarchy import ObservationPredictor
 
 
