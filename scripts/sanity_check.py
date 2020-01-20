@@ -29,4 +29,4 @@ print("Training app was set up. The values of 'scalar.data' should be equal to t
 for fieldname in app.fieldnames:
     if 'Sim' in fieldname:
         value = app.get_field(fieldname)
-        print("%s = %s" % (fieldname, value[...,0]))
+        print("%s = %s" % (fieldname, value[..., 0]))

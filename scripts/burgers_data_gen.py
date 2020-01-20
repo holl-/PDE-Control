@@ -1,14 +1,13 @@
 from phi.flow import *
+from control.pde.burgers import DOMAIN, VISCOSITY
 
 
-for scene in Scene.list("~/phi/data/control/forced-burgerclash"):
+for scene in Scene.list('~/phi/data/control/forced-burgers-clash'):
     scene.remove()
 
-SCENE_COUNT = 10
+SCENE_COUNT = 100
 STEP_COUNT = 32
 BATCH_SIZE = 10
-VISCOSITY = 0.1 / 32
-DOMAIN = Domain([128], box=box[0:1])
 
 print("Generating %d scenes with %d STEP_COUNT each." % (SCENE_COUNT, STEP_COUNT))
 
@@ -63,11 +62,11 @@ class GaussianForce(AnalyticField):
 
 
 for batch_index in range(SCENE_COUNT // BATCH_SIZE):
-    scene = Scene.create('~/phi/data/control/forced-burgerclash', count=BATCH_SIZE)
+    scene = Scene.create('~/phi/data/control/forced-burgers-clash', count=BATCH_SIZE)
     print(scene)
 
     world = World()
-    u = u0 = DiffusiveVelocity(DOMAIN, velocity=InitialState(), viscosity=VISCOSITY, batch_size=BATCH_SIZE, name='burgers')
+    u = u0 = BurgersVelocity(DOMAIN, velocity=InitialState(), viscosity=VISCOSITY, batch_size=BATCH_SIZE, name='burgers')
     u = world.add(u, physics=Burgers(diffusion_substeps=4))
     force = world.add(FieldEffect(GaussianForce(), ['velocity']))
 
@@ -76,7 +75,7 @@ for batch_index in range(SCENE_COUNT // BATCH_SIZE):
     scene.properties = {"dimensions": DOMAIN.resolution.tolist(), "viscosity": VISCOSITY, "force": force.field.forceamp.tolist()}
     scene.write(world.state, frame=0)
     for frame in range(1, STEP_COUNT + 1):
-        world.step(dt=1/32)
+        world.step(dt=1/32.)
         scene.write(world.state, frame=frame)
 
     # pylab.plot(u.velocity.data[0,:,0])

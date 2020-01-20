@@ -113,9 +113,10 @@ class PDEExecutor(PartitioningExecutor):
             n *= 2
 
 
+@struct.definition()
 class NextStatePrediction(State):
 
-    def __init__(self, prediction, tags=('next_state_prediction',), **kwargs):
+    def __init__(self, prediction, tags=('next_state_prediction',), name='next', **kwargs):
         State.__init__(self, **struct.kwargs(locals()))
 
     @struct.variable()

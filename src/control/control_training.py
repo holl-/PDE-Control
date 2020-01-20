@@ -48,7 +48,7 @@ class ControlTraining(LearningApp):
         in_states = [ world.state ] + [None] * (n-1) + [ target_state ]
         for frame in obs_loss_frames:
             if in_states[frame] is None:
-                in_states[frame] = pde.placeholder_state(world).copied_with(age=frame)
+                in_states[frame] = pde.placeholder_state(world, frame*self.dt)
 
         executor = self.executor = PDEExecutor(world, pde, target_state, trainable_networks, self.dt)
         sequence = sequence_class(n, executor)
@@ -67,7 +67,7 @@ class ControlTraining(LearningApp):
             supervised_loss = pde.target_matching_loss(in_states[frame], sequence[frame].worldstate)
             if supervised_loss is not None:
                 self.add_scalar('GT_obs_%d' % frame, supervised_loss)
-                self.add_all_fields('GT', in_states[frame])
+                self.add_all_fields('GT', in_states[frame], frame)
                 matching_loss += supervised_loss
         if matching_loss is not 0:
             self.add_objective(matching_loss, 'Target Loss', reg=reg)
@@ -105,3 +105,6 @@ class ControlTraining(LearningApp):
     def action_load_networks(self):
         if self.checkpoint_dict is not None:
             self.executor.load(self.n, self.checkpoint_dict, preload_n=True, session=self.session, logf=self.info)
+
+    def action_save_model(self):
+        self.save_model()
