@@ -77,9 +77,10 @@ class PDEExecutor(PartitioningExecutor):
 
     def load(self, max_n, checkpoint_dict, preload_n, session, logf):
         # Control Force Estimator (CFE)
-        ik_checkpoint = os.path.expanduser(checkpoint_dict['CFE'])
-        logf("Loading CFE from %s..." % ik_checkpoint)
-        session.restore(ik_checkpoint, scope='CFE')
+        if 'CFE' in checkpoint_dict:
+            ik_checkpoint = os.path.expanduser(checkpoint_dict['CFE'])
+            logf("Loading CFE from %s..." % ik_checkpoint)
+            session.restore(ik_checkpoint, scope='CFE')
         # Observation Predictors (OP)
         n = 2
         while n <= max_n:

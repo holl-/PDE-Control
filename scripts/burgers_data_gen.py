@@ -1,81 +1,38 @@
 from phi.flow import *
-from control.pde.burgers import DOMAIN, VISCOSITY
+from control.pde.burgers import InitialState, GaussianForce
 
 
 for scene in Scene.list('~/phi/data/control/forced-burgers-clash'):
     scene.remove()
 
-SCENE_COUNT = 100
-STEP_COUNT = 32
-BATCH_SIZE = 10
+scene_count = 1000  # how many examples to generate (training + validation + test)
+step_count = 32  # how many solver steps to perform, equal to (sequence length - 1)
+batch_size = 10  # How many examples to generate in parallel
+viscosity = 0.003125  # Viscosity constant for Burgers equation
+domain = Domain([128], box=box[0:1])  # 1D Grid resolution and physical size
+dt = 0.03125  # Time increment per solver step
 
-print("Generating %d scenes with %d STEP_COUNT each." % (SCENE_COUNT, STEP_COUNT))
+print("Generating %d scenes with %d STEP_COUNT each." % (scene_count, step_count))
 
-
-def random_initial_state():
-    CenteredGrid.sample(0, DOMAIN, batch_size=BATCH_SIZE)
-
-
-@struct.definition()
-class InitialState(AnalyticField):
-
-    def __init__(self):
-        AnalyticField.__init__(self, rank=1)
-
-    def sample_at(self, idx, collapse_dimensions=True):
-        leftloc = np.random.uniform(0.2, 0.4, BATCH_SIZE)
-        leftamp = np.random.uniform(0, 3, BATCH_SIZE)
-        leftsig = np.random.uniform(0.05, 0.15, BATCH_SIZE)
-        rightloc = np.random.uniform(0.6, 0.8, BATCH_SIZE)
-        rightamp = np.random.uniform(-3, 0, BATCH_SIZE)
-        rightsig = np.random.uniform(0.05, 0.15, BATCH_SIZE)
-        idx = np.swapaxes(idx, 0, -1)  # batch last to match random values
-        left = leftamp * np.exp(-0.5 * (idx - leftloc) ** 2 / leftsig ** 2)
-        right = rightamp * np.exp(-0.5 * (idx - rightloc) ** 2 / rightsig ** 2)
-        result = left + right
-        result = np.swapaxes(result, 0, -1)
-        return result
-
-    @struct.constant()
-    def data(self, data): return data
-
-
-@struct.definition()
-class GaussianForce(AnalyticField):
-
-    def __init__(self):
-        AnalyticField.__init__(self, rank=1)
-        self.forceloc = np.random.uniform(0.4, 0.6, BATCH_SIZE)
-        self.forceamp = np.random.uniform(-0.05, 0.05, BATCH_SIZE) * 32
-        self.forcesig = np.random.uniform(0.1, 0.4, BATCH_SIZE)
-
-    def sample_at(self, idx, collapse_dimensions=True):
-        idx = np.swapaxes(idx, 0, -1)  # batch last to match random values
-        result = self.forceamp * np.exp(-0.5 * (idx - self.forceloc) ** 2 / self.forcesig ** 2)
-        result = np.swapaxes(result, 0, -1)
-        return result
-
-    @struct.constant()
-    def data(self, data): return data
 
 # import pylab
 
 
-for batch_index in range(SCENE_COUNT // BATCH_SIZE):
-    scene = Scene.create('~/phi/data/control/forced-burgers-clash', count=BATCH_SIZE)
+for batch_index in range(scene_count // batch_size):
+    scene = Scene.create('~/phi/data/control/forced-burgers-clash', count=batch_size)
     print(scene)
 
     world = World()
-    u = u0 = BurgersVelocity(DOMAIN, velocity=InitialState(), viscosity=VISCOSITY, batch_size=BATCH_SIZE, name='burgers')
+    u = u0 = BurgersVelocity(domain, velocity=InitialState(batch_size), viscosity=viscosity, batch_size=batch_size, name='burgers')
     u = world.add(u, physics=Burgers(diffusion_substeps=4))
-    force = world.add(FieldEffect(GaussianForce(), ['velocity']))
+    force = world.add(FieldEffect(GaussianForce(batch_size), ['velocity']))
 
     # pylab.plot(u0.velocity.data[0,:,0])
 
-    scene.properties = {"dimensions": DOMAIN.resolution.tolist(), "viscosity": VISCOSITY, "force": force.field.forceamp.tolist()}
+    scene.properties = {"dimensions": domain.resolution.tolist(), "viscosity": viscosity, "force": force.field.forceamp.tolist()}
     scene.write(world.state, frame=0)
-    for frame in range(1, STEP_COUNT + 1):
-        world.step(dt=1/32.)
+    for frame in range(1, step_count + 1):
+        world.step(dt=dt)
         scene.write(world.state, frame=frame)
 
     # pylab.plot(u.velocity.data[0,:,0])

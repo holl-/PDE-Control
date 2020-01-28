@@ -2,7 +2,7 @@ from control.pde.burgers import BurgersPDE
 from control.control_training import ControlTraining, StaggeredSequence
 from phi.flow import show
 
-n = 4
+n = 2
 
 checkpoint_dict = {
     'OP2': '/home/holl/phi/model/control-training/sim_000184/checkpoint_00004301',
@@ -19,11 +19,14 @@ app = ControlTraining(n,
                       train_range=range(10, 100),
                       trace_to_channel=lambda trace: 'burgers_velocity',
                       obs_loss_frames=[],
-                      trainable_networks=['OP%d' % n],
+                      trainable_networks=['OP%d' % 2**i for i in range(5)],
                       checkpoint_dict=checkpoint_dict,
                       sequence_class=StaggeredSequence,
                       batch_size=10,
                       view_size=10,
                       learning_rate=1e-3,
                       dt=1 / 32.)
-show(app)
+app.prepare()
+print(app.scalar_values_validation['Total Force'])
+# show(app)
+# app.scalar_values['Loss']

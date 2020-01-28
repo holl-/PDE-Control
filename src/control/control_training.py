@@ -17,6 +17,7 @@ class ControlTraining(LearningApp):
                  batch_size=16,
                  view_size=16,
                  learning_rate=1e-3,
+                 learning_rate_half_life=1000,
                  dt=1.0):
         """
 
@@ -26,8 +27,9 @@ class ControlTraining(LearningApp):
         :param sequence_matching:
         :param train_cfe:
         """
-        LearningApp.__init__(self, 'Control Training', 'Train PDE control: OP / CFE',
-                             training_batch_size=batch_size, validation_batch_size=batch_size, learning_rate=learning_rate, stride=50)
+        LearningApp.__init__(self, 'Control Training', 'Train PDE control: OP / CFE', training_batch_size=batch_size, validation_batch_size=batch_size, learning_rate=learning_rate, stride=50)
+        self.initial_learning_rate = learning_rate
+        self.learning_rate_half_life = learning_rate_half_life
         if n <= 1: sequence_matching = False
         diffphys = sequence_class is not None
         if sequence_class is None:
@@ -49,49 +51,48 @@ class ControlTraining(LearningApp):
         for frame in obs_loss_frames:
             if in_states[frame] is None:
                 in_states[frame] = pde.placeholder_state(world, frame*self.dt)
-
+        # --- Execute sequence ---
         executor = self.executor = PDEExecutor(world, pde, target_state, trainable_networks, self.dt)
         sequence = sequence_class(n, executor)
         sequence.execute()
         all_states = [frame.worldstate for frame in sequence if frame is not None]
-
         # --- Loss ---
-        matching_loss = 0
+        loss = 0
         reg = None
         if diffphys:
             force_loss = pde.target_matching_loss(target_state, sequence[-1].worldstate)
             if force_loss is not None:
-                matching_loss += force_loss
+                loss += force_loss
                 reg = pde.total_force_loss([state for state in all_states if state is not None])
         for frame in obs_loss_frames:
             supervised_loss = pde.target_matching_loss(in_states[frame], sequence[frame].worldstate)
             if supervised_loss is not None:
                 self.add_scalar('GT_obs_%d' % frame, supervised_loss)
                 self.add_all_fields('GT', in_states[frame], frame)
-                matching_loss += supervised_loss
-        if matching_loss is not 0:
-            self.add_objective(matching_loss, 'Target Loss', reg=reg)
-
+                loss += supervised_loss
+        if loss is not 0:
+            self.add_objective(loss, 'Loss', reg=reg)
+        for name, scalar in pde.scalars.items():
+            self.add_scalar(name, scalar)
         # --- Training data ---
         placeholders, channels = collect_placeholders_channels(in_states, trace_to_channel=trace_to_channel)
         data_load_dict = {p: c for p, c in zip(placeholders, channels)}
         self.set_data(data_load_dict,
                       val=None if val_range is None else Dataset.load(datapath, val_range),  # PDE-specific
                       train=None if train_range is None else Dataset.load(datapath, train_range))  # PDE-specific
-
-        # --- Checkpoints ---
-        self.action_load_networks()
-
         # --- Show all states in GUI ---
         for i, (placeholder, channel) in enumerate(zip(placeholders, channels)):
             def fetch(i=i): return self.viewed_batch[i]
-
             self.add_field('%s %d' % (channel, i), fetch)
         for i, worldstate in enumerate(all_states):
             self.add_all_fields('Sim', worldstate, i)
-        # TODO add loss fields
         for name, field in pde.fields.items():
             self.add_field(name, field)
+
+    def prepare(self):
+        LearningApp.prepare(self)
+        self.action_load_networks()
+        return self
 
     def add_all_fields(self, prefix, worldstate, index):
         with struct.unsafe(): fields = struct.flatten(struct.map(lambda x: x, worldstate, trace=True))
@@ -108,3 +109,8 @@ class ControlTraining(LearningApp):
 
     def action_save_model(self):
         self.save_model()
+
+    def step(self):
+        if self.learning_rate_half_life is not None:
+            self.float_learning_rate = self.initial_learning_rate * 0.5 ** (self.steps / float(self.learning_rate_half_life))
+        LearningApp.step(self)

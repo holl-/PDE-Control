@@ -1,9 +1,10 @@
-from phi.tf.flow import StateDependency, Physics, placeholder, Burgers, Domain, BurgersVelocity, box, math, tf, residual_block_1d
+from phi.tf.flow import StateDependency, Physics, placeholder, Burgers, Domain, BurgersVelocity, box, math, tf, residual_block_1d, struct, AnalyticField, np
 from .pde_base import PDE
 
 
 VISCOSITY = 0.1 / 32
 DOMAIN = Domain([128], box=box[0:1])
+DT = 1/32.
 
 
 class BurgersPDE(PDE):
@@ -22,12 +23,23 @@ class BurgersPDE(PDE):
         return world.state.state_replaced(pl_state)
 
     def target_matching_loss(self, target_state, actual_state):
+        # Only needed for supervised initialization
         diff = target_state[self.burgers].velocity.data - actual_state[self.burgers].velocity.data
         loss = math.l2_loss(diff)
         return loss
 
     def total_force_loss(self, states):
-        return None
+        l2 = []
+        l1 = []
+        for s1, s2 in zip(states[:-1], states[1:]):
+            natural_evolution = Burgers().step(s1.burgers, dt=DT)
+            diff = s2.burgers.velocity - natural_evolution.velocity
+            l2.append(math.l2_loss(diff.data))
+            l1.append(math.l1_loss(diff.data))
+        l2 = math.sum(l2)
+        l1 = math.sum(l1)
+        self.scalars['Total Force'] = l1
+        return l2
 
     def predict(self, n, initial_worldstate, target_worldstate, trainable):
         b1, b2 = initial_worldstate[self.burgers], target_worldstate[self.burgers]
@@ -76,3 +88,47 @@ class ReplacePhysics(Physics):
 
     def step(self, state, dt=1.0, next_state_prediction=None):
         return next_state_prediction.prediction.burgers
+
+
+@struct.definition()
+class InitialState(AnalyticField):
+
+    def __init__(self, batch_size):
+        AnalyticField.__init__(self, rank=1)
+        self.batch_size = batch_size
+
+    def sample_at(self, idx, collapse_dimensions=True):
+        leftloc = np.random.uniform(0.2, 0.4, self.batch_size)
+        leftamp = np.random.uniform(0, 3, self.batch_size)
+        leftsig = np.random.uniform(0.05, 0.15, self.batch_size)
+        rightloc = np.random.uniform(0.6, 0.8, self.batch_size)
+        rightamp = np.random.uniform(-3, 0, self.batch_size)
+        rightsig = np.random.uniform(0.05, 0.15, self.batch_size)
+        idx = np.swapaxes(idx, 0, -1)  # batch last to match random values
+        left = leftamp * np.exp(-0.5 * (idx - leftloc) ** 2 / leftsig ** 2)
+        right = rightamp * np.exp(-0.5 * (idx - rightloc) ** 2 / rightsig ** 2)
+        result = left + right
+        result = np.swapaxes(result, 0, -1)
+        return result
+
+    @struct.constant()
+    def data(self, data): return data
+
+
+@struct.definition()
+class GaussianForce(AnalyticField):
+
+    def __init__(self, batch_size):
+        AnalyticField.__init__(self, rank=1)
+        self.forceloc = np.random.uniform(0.4, 0.6, batch_size)
+        self.forceamp = np.random.uniform(-0.05, 0.05, batch_size) * 32
+        self.forcesig = np.random.uniform(0.1, 0.4, batch_size)
+
+    def sample_at(self, idx, collapse_dimensions=True):
+        idx = np.swapaxes(idx, 0, -1)  # batch last to match random values
+        result = self.forceamp * np.exp(-0.5 * (idx - self.forceloc) ** 2 / self.forcesig ** 2)
+        result = np.swapaxes(result, 0, -1)
+        return result
+
+    @struct.constant()
+    def data(self, data): return data

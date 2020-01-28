@@ -6,6 +6,7 @@ class PDE(ObservationPredictor):
 
     def __init__(self):
         self.fields = {}
+        self.scalars = {}
 
     def create_pde(self, world, control_trainable, constant_prediction_offset):
         raise NotImplementedError(self)
