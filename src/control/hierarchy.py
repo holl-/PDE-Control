@@ -1,5 +1,5 @@
 import os
-from phi.flow import StateProxy, State, struct, CollectiveState
+from phi.flow import StateProxy, State, struct, StateCollection
 from .sequences import SeqFrame, PartitioningExecutor, TYPE_KEYFRAME, TYPE_UNKNOWN, LinearSequence
 
 
@@ -122,7 +122,7 @@ class NextStatePrediction(State):
 
     @struct.variable()
     def prediction(self, prediction):
-        assert prediction is None or isinstance(prediction, CollectiveState)
+        assert prediction is None or isinstance(prediction, StateCollection)
         return prediction
 
     def __repr__(self):
