@@ -2,20 +2,18 @@ from phi.tf.flow import StateDependency, Physics, placeholder, Burgers, Domain, 
 from .pde_base import PDE
 
 
-VISCOSITY = 0.1 / 32
-DOMAIN = Domain([128], box=box[0:1])
-DT = 1/32.
-
-
 class BurgersPDE(PDE):
 
-    def __init__(self):
+    def __init__(self, domain, viscosity, dt):
         PDE.__init__(self)
         self.burgers = None
+        self.domain = domain
+        self.viscosity = viscosity
+        self.dt = dt
 
     def create_pde(self, world, control_trainable, constant_prediction_offset):
         world.reset(world.batch_size, add_default_objects=False)
-        u0 = BurgersVelocity(DOMAIN, viscosity=VISCOSITY, batch_size=world.batch_size, name='burgers')
+        u0 = BurgersVelocity(self.domain, viscosity=self.viscosity, batch_size=world.batch_size, name='burgers')
         self.burgers = world.add(u0, ReplacePhysics())
 
     def placeholder_state(self, world, age):
@@ -32,7 +30,7 @@ class BurgersPDE(PDE):
         l2 = []
         l1 = []
         for s1, s2 in zip(states[:-1], states[1:]):
-            natural_evolution = Burgers().step(s1.burgers, dt=DT)
+            natural_evolution = Burgers().step(s1.burgers, dt=self.dt)
             diff = s2.burgers.velocity - natural_evolution.velocity
             l2.append(math.l2_loss(diff.data))
             l1.append(math.l1_loss(diff.data))
@@ -91,7 +89,7 @@ class ReplacePhysics(Physics):
 
 
 @struct.definition()
-class InitialState(AnalyticField):
+class GaussianClash(AnalyticField):
 
     def __init__(self, batch_size):
         AnalyticField.__init__(self, rank=1)
@@ -120,13 +118,13 @@ class GaussianForce(AnalyticField):
 
     def __init__(self, batch_size):
         AnalyticField.__init__(self, rank=1)
-        self.forceloc = np.random.uniform(0.4, 0.6, batch_size)
-        self.forceamp = np.random.uniform(-0.05, 0.05, batch_size) * 32
-        self.forcesig = np.random.uniform(0.1, 0.4, batch_size)
+        self.loc = np.random.uniform(0.4, 0.6, batch_size)
+        self.amp = np.random.uniform(-0.05, 0.05, batch_size) * 32
+        self.sig = np.random.uniform(0.1, 0.4, batch_size)
 
     def sample_at(self, idx, collapse_dimensions=True):
         idx = np.swapaxes(idx, 0, -1)  # batch last to match random values
-        result = self.forceamp * np.exp(-0.5 * (idx - self.forceloc) ** 2 / self.forcesig ** 2)
+        result = self.amp * np.exp(-0.5 * (idx - self.loc) ** 2 / self.sig ** 2)
         result = np.swapaxes(result, 0, -1)
         return result
 

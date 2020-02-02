@@ -12,7 +12,6 @@ class ControlTraining(LearningApp):
                  trace_to_channel=None,
                  obs_loss_frames=(-1,),
                  trainable_networks=('CFE', 'OP2'),
-                 checkpoint_dict=None,
                  sequence_class=StaggeredSequence,
                  batch_size=16,
                  view_size=16,
@@ -35,11 +34,12 @@ class ControlTraining(LearningApp):
         if sequence_class is None:
             assert 'CFE' not in trainable_networks, 'CRE training requires a sequence_class.'
             assert len(obs_loss_frames) > 0, 'No loss provided (no obs_loss_frames and no sequence_class).'
-            assert checkpoint_dict is None, 'Currently, loading is only supported for sequences.'
             sequence_class = SkipSequence
         self.n = n
-        self.checkpoint_dict = checkpoint_dict
         self.dt = dt
+        self.data_path = datapath
+        self.checkpoint_dict = None
+        self.info('Sequence class: %s' % sequence_class)
 
         # --- Set up PDE sequence ---
         world = World(batch_size=None); pde.create_pde(world, 'CFE' in trainable_networks, sequence_class!=LinearSequence)  # TODO BATCH_SIZE=None
@@ -53,28 +53,33 @@ class ControlTraining(LearningApp):
                 in_states[frame] = pde.placeholder_state(world, frame*self.dt)
         # --- Execute sequence ---
         executor = self.executor = PDEExecutor(world, pde, target_state, trainable_networks, self.dt)
-        sequence = sequence_class(n, executor)
+        sequence = self.sequence = sequence_class(n, executor)
         sequence.execute()
-        all_states = [frame.worldstate for frame in sequence if frame is not None]
+        all_states = self.all_states = [frame.worldstate for frame in sequence if frame is not None]
         # --- Loss ---
         loss = 0
         reg = None
         if diffphys:
-            force_loss = pde.target_matching_loss(target_state, sequence[-1].worldstate)
-            if force_loss is not None:
-                loss += force_loss
-                reg = pde.total_force_loss([state for state in all_states if state is not None])
+            target_loss = pde.target_matching_loss(target_state, sequence[-1].worldstate)
+            self.info('Target loss: %s' % target_loss)
+            if target_loss is not None:
+                loss += target_loss
+            reg = pde.total_force_loss([state for state in all_states if state is not None])
+            self.info('Force loss: %s' % reg)
         for frame in obs_loss_frames:
             supervised_loss = pde.target_matching_loss(in_states[frame], sequence[frame].worldstate)
             if supervised_loss is not None:
+                self.info('Supervised loss at frame %d: %s' % (frame, supervised_loss))
                 self.add_scalar('GT_obs_%d' % frame, supervised_loss)
                 self.add_all_fields('GT', in_states[frame], frame)
                 loss += supervised_loss
+        self.info('Setting up loss')
         if loss is not 0:
             self.add_objective(loss, 'Loss', reg=reg)
         for name, scalar in pde.scalars.items():
             self.add_scalar(name, scalar)
         # --- Training data ---
+        self.info('Preparing data')
         placeholders, channels = collect_placeholders_channels(in_states, trace_to_channel=trace_to_channel)
         data_load_dict = {p: c for p, c in zip(placeholders, channels)}
         self.set_data(data_load_dict,
@@ -89,23 +94,20 @@ class ControlTraining(LearningApp):
         for name, field in pde.fields.items():
             self.add_field(name, field)
 
-    def prepare(self):
-        LearningApp.prepare(self)
-        self.action_load_networks()
-        return self
-
     def add_all_fields(self, prefix, worldstate, index):
         with struct.unsafe(): fields = struct.flatten(struct.map(lambda x: x, worldstate, trace=True))
         for field in fields:
             name = '%s[%02d] %s' % (prefix, index, field.path())
             if field.value is not None:
                 self.add_field(name, field.value)
-            else:
-                self.info('Field %s has value None' % name)
+            # else:
+            #     self.info('Field %s has value None' % name)
 
-    def action_load_networks(self):
-        if self.checkpoint_dict is not None:
-            self.executor.load(self.n, self.checkpoint_dict, preload_n=True, session=self.session, logf=self.info)
+    def load_checkpoints(self, checkpoint_dict):
+        if not self.prepared:
+            self.prepare()
+        self.checkpoint_dict = checkpoint_dict
+        self.executor.load(self.n, checkpoint_dict, preload_n=True, session=self.session, logf=self.info)
 
     def action_save_model(self):
         self.save_model()
@@ -114,3 +116,20 @@ class ControlTraining(LearningApp):
         if self.learning_rate_half_life is not None:
             self.float_learning_rate = self.initial_learning_rate * 0.5 ** (self.steps / float(self.learning_rate_half_life))
         LearningApp.step(self)
+
+    def infer_all_frames(self, data_range):
+        dataset = Dataset.load(self.data_path, data_range)
+        reader = BatchReader(dataset, self._channel_struct)
+        batch = reader[0:len(reader)]
+        feed_dict = self._feed_dict(batch, True)
+        inferred = self.session.run(self.all_states, feed_dict=feed_dict)
+        return inferred
+
+    def infer_scalars(self, data_range):
+        dataset = Dataset.load(self.data_path, data_range)
+        reader = BatchReader(dataset, self._channel_struct)
+        batch = reader[0:len(reader)]
+        feed_dict = self._feed_dict(batch, True)
+        scalar_values = self.session.run(self.scalars, feed_dict, summary_key='val', merged_summary=self.merged_scalars, time=self.steps)
+        scalar_values = {name: value for name, value in zip(self.scalar_names, scalar_values)}
+        return scalar_values
