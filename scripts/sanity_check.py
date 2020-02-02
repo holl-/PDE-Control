@@ -21,7 +21,6 @@ app = ControlTraining(n=8,
                       train_range=None,
                       obs_loss_frames=[-1],
                       trainable_networks=[],
-                      checkpoint_dict=None,
                       sequence_class=StaggeredSequence,
                       batch_size=1)
 

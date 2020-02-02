@@ -1,3 +1,3 @@
 from control.sequences import PartitioningExecutor, RefinedSequence
 
-RefinedSequence(8, PartitioningExecutor()).execute()
+RefinedSequence(step_count=8, executor=PartitioningExecutor()).execute()
