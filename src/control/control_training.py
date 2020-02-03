@@ -17,7 +17,8 @@ class ControlTraining(LearningApp):
                  view_size=16,
                  learning_rate=1e-3,
                  learning_rate_half_life=1000,
-                 dt=1.0):
+                 dt=1.0,
+                 new_graph=True):
         """
 
         :param n:
@@ -26,6 +27,8 @@ class ControlTraining(LearningApp):
         :param sequence_matching:
         :param train_cfe:
         """
+        if new_graph:
+            tf.reset_default_graph()
         LearningApp.__init__(self, 'Control Training', 'Train PDE control: OP / CFE', training_batch_size=batch_size, validation_batch_size=batch_size, learning_rate=learning_rate, stride=50)
         self.initial_learning_rate = learning_rate
         self.learning_rate_half_life = learning_rate_half_life
