@@ -3,18 +3,6 @@ from phi.flow import StateProxy, State, struct, StateCollection
 from .sequences import SeqFrame, PartitioningExecutor, TYPE_KEYFRAME, TYPE_UNKNOWN, LinearSequence
 
 
-class ObservationPredictor(object):
-
-    def predict(self, n, initial_worldstate, target_worldstate, trainable):
-        """
-Predicts an intermediate worldstate.
-        :param n:
-        :param initial_worldstate:
-        :param target_worldstate:
-        """
-        raise NotImplementedError(self)
-
-
 class StateFrame(SeqFrame):
 
     def __init__(self, index, type):
@@ -29,9 +17,9 @@ class StateFrame(SeqFrame):
 
 class PDEExecutor(PartitioningExecutor):
 
-    def __init__(self, world, observation_predictor, target_state, trainable_networks, dt):
+    def __init__(self, world, pde, target_state, trainable_networks, dt):
         self.world = world
-        self.observation_predictor = observation_predictor
+        self.pde = pde
         self.worldsteps = 0
         self.next_state_prediction = NextStatePrediction(None)
         self.world.add(self.next_state_prediction)
@@ -67,7 +55,7 @@ class PDEExecutor(PartitioningExecutor):
 
     def partition(self, n, initial_frame, target_frame, center_frame):
         PartitioningExecutor.partition(self, n, initial_frame, target_frame, center_frame)
-        center_frame.worldstate = self.observation_predictor.predict(n, initial_frame.worldstate, target_frame.worldstate, trainable='OP%d'%n in self.trainable_networks)
+        center_frame.worldstate = self.pde.predict(n, initial_frame.worldstate, target_frame.worldstate, trainable='OP%d' % n in self.trainable_networks)
 
         if center_frame.index == self.worldsteps + 1:
             assert center_frame.worldstate is not None

@@ -1,9 +1,6 @@
-from phi.tf.flow import StateDependency, Physics, ConstantField, FieldEffect, FieldPhysics, ADD, placeholder
+from phi.tf.flow import StateDependency, Physics, ConstantField, FieldEffect, FieldPhysics, ADD
 from .pde_base import PDE
-import tensorflow as tf
-if tf.__version__[0] == '2':
-    tf = tf.compat.v1
-    tf.disable_eager_execution()
+
 
 class ScalarEffectControl(Physics):
 
@@ -22,10 +19,6 @@ class IncrementPDE(PDE):
         world.reset(world.batch_size, add_default_objects=False)
         world.add(ConstantField(0.0, name='scalar', flags=()), physics=FieldPhysics('scalar'))
         world.add(FieldEffect(ConstantField(0, flags=()), ['scalar'], ADD), physics=ScalarEffectControl())
-
-    def placeholder_state(self, world, age):
-        pl_state = placeholder(world.state.scalar.shape).copied_with(age=age)
-        return world.state.state_replaced(pl_state)
 
     def target_matching_loss(self, target_state, actual_state):
         return None

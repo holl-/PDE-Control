@@ -42,3 +42,13 @@ In the browser, navigate into the `notebooks` directory and open `Control Burger
 **Experiment 2: Shape transition**
 
 Coming soon.
+
+
+## Extending the method to other equations
+
+This project uses the physics framework of Φ<sub>Flow</sub>. `world.step()` is used to set up the differentiable simulation.
+
+The physics of a control problem and correponding network architectures are encapsulated in the class `PDE` in [`control.pde.pde_base`](src/control/pde/pde_base.py).
+For reference, have a look at the implementation of [`IncrementPDE`](src/control/pde/value.py) and [`BurgersPDE`](src/control/pde/burgers.py)
+
+To implement your own physics or networks, subtype the `PDE` class and pass it to the `ControlTraining` constructor. `ControlTraining` will automatically initialize states and call `world.step()`.

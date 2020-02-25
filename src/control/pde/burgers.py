@@ -12,23 +12,18 @@ class BurgersPDE(PDE):
 
     def __init__(self, domain, viscosity, dt):
         PDE.__init__(self)
-        self.burgers = None
         self.domain = domain
         self.viscosity = viscosity
         self.dt = dt
 
     def create_pde(self, world, control_trainable, constant_prediction_offset):
         world.reset(world.batch_size, add_default_objects=False)
-        u0 = BurgersVelocity(self.domain, viscosity=self.viscosity, batch_size=world.batch_size, name="burgers")
-        self.burgers = world.add(u0, ReplacePhysics())
-
-    def placeholder_state(self, world, age):
-        pl_state = placeholder(world.state[self.burgers].staticshape).copied_with(age=age)
-        return world.state.state_replaced(pl_state)
+        u0 = BurgersVelocity(self.domain, viscosity=self.viscosity, batch_size=world.batch_size, name='burgers')
+        world.add(u0, ReplacePhysics())
 
     def target_matching_loss(self, target_state, actual_state):
         # Only needed for supervised initialization
-        diff = target_state[self.burgers].velocity.data - actual_state[self.burgers].velocity.data
+        diff = target_state.burgers.velocity.data - actual_state.burgers.velocity.data
         loss = math.l2_loss(diff)
         return loss
 
@@ -46,7 +41,7 @@ class BurgersPDE(PDE):
         return l2
 
     def predict(self, n, initial_worldstate, target_worldstate, trainable):
-        b1, b2 = initial_worldstate[self.burgers], target_worldstate[self.burgers]
+        b1, b2 = initial_worldstate.burgers, target_worldstate.burgers
         center_age = (b1.age + b2.age) / 2
         with tf.variable_scope("OP%d" % n):
             predicted_tensor = op_resnet(b1.velocity.data, b2.velocity.data)
