@@ -17,7 +17,7 @@ class BurgersPDE(PDE):
         self.burgers = world.add(u0, ReplacePhysics())
 
     def placeholder_state(self, world, age):
-        pl_state = placeholder(world.state[self.burgers].shape).copied_with(age=age)
+        pl_state = placeholder(world.state[self.burgers].staticshape).copied_with(age=age)
         return world.state.state_replaced(pl_state)
 
     def target_matching_loss(self, target_state, actual_state):
