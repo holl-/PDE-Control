@@ -5,6 +5,11 @@ from .pde.pde_base import collect_placeholders_channels
 from .sequences import StaggeredSequence, SkipSequence, LinearSequence
 from .hierarchy import PDEExecutor
 
+import tensorflow as tf
+if tf.__version__[0] == '2':
+    tf = tf.compat.v1
+    tf.disable_eager_execution()
+
 
 class ControlTraining(LearningApp):
 
@@ -28,11 +33,14 @@ class ControlTraining(LearningApp):
         :param train_cfe:
         """
         if new_graph:
+            import tensorflow.compat.v1 as tf
             tf.reset_default_graph()
-        LearningApp.__init__(self, 'Control Training', 'Train PDE control: OP / CFE', training_batch_size=batch_size, validation_batch_size=batch_size, learning_rate=learning_rate, stride=50)
+        LearningApp.__init__(self, 'Control Training', 'Train PDE control: OP / CFE', training_batch_size=batch_size,
+                             validation_batch_size=batch_size, learning_rate=learning_rate, stride=50)
         self.initial_learning_rate = learning_rate
         self.learning_rate_half_life = learning_rate_half_life
-        if n <= 1: sequence_matching = False
+        if n <= 1:
+            sequence_matching = False
         diffphys = sequence_class is not None
         if sequence_class is None:
             assert 'CFE' not in trainable_networks, 'CRE training requires a sequence_class.'
@@ -45,12 +53,13 @@ class ControlTraining(LearningApp):
         self.info('Sequence class: %s' % sequence_class)
 
         # --- Set up PDE sequence ---
-        world = World(batch_size=None); pde.create_pde(world, 'CFE' in trainable_networks, sequence_class!=LinearSequence)  # TODO BATCH_SIZE=None
+        world = World(batch_size=None)
+        pde.create_pde(world, 'CFE' in trainable_networks, sequence_class != LinearSequence)  # TODO BATCH_SIZE=None
         world.state = pde.placeholder_state(world, 0)
         self.add_all_fields('GT', world.state, 0)
         target_state = pde.placeholder_state(world, n*dt)
         self.add_all_fields('GT', target_state, n)
-        in_states = [ world.state ] + [None] * (n-1) + [ target_state ]
+        in_states = [world.state] + [None] * (n-1) + [target_state]
         for frame in obs_loss_frames:
             if in_states[frame] is None:
                 in_states[frame] = pde.placeholder_state(world, frame*self.dt)
@@ -98,7 +107,8 @@ class ControlTraining(LearningApp):
             self.add_field(name, field)
 
     def add_all_fields(self, prefix, worldstate, index):
-        with struct.unsafe(): fields = struct.flatten(struct.map(lambda x: x, worldstate, trace=True))
+        with struct.unsafe():
+            fields = struct.flatten(struct.map(lambda x: x, worldstate, trace=True))
         for field in fields:
             name = '%s[%02d] %s' % (prefix, index, field.path())
             if field.value is not None:
