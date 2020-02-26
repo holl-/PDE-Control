@@ -4,7 +4,9 @@ from .pde_base import PDE
 import numpy as np
 import tensorflow as tf
 if tf.__version__[0] == '2':
+    layers = tf.keras.layers
     tf = tf.compat.v1
+    tf.layers = layers
     tf.disable_eager_execution()
 
 
