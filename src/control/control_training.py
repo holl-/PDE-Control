@@ -33,7 +33,6 @@ class ControlTraining(LearningApp):
         :param train_cfe:
         """
         if new_graph:
-            import tensorflow.compat.v1 as tf
             tf.reset_default_graph()
         LearningApp.__init__(self, 'Control Training', 'Train PDE control: OP / CFE', training_batch_size=batch_size,
                              validation_batch_size=batch_size, learning_rate=learning_rate, stride=50)
