@@ -19,7 +19,7 @@ $ git clone --recursive https://github.com/holl-/PDE-Control.git
 Install the dependencies by executing the below command inside the root directory of your cloned repository.
 
 ```bash
-$ pip install PhiFlow/[gui] jupyterlab tensorflow==1.14.0
+$ pip install PDE-Control/PhiFlow/[gui] jupyterlab tensorflow==1.14.0 matplotlib
 ```
 
 
