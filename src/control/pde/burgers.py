@@ -1,13 +1,5 @@
-from phi.tf.flow import StateDependency, Physics, placeholder, Burgers, Domain, BurgersVelocity, box, math, struct, AnalyticField, residual_block_1d
+from phi.tf.flow import tf, np, StateDependency, Physics, Burgers, BurgersVelocity, math, struct, AnalyticField, residual_block_1d
 from .pde_base import PDE
-
-import numpy as np
-import tensorflow as tf
-if tf.__version__[0] == '2':
-    layers = tf.keras.layers
-    tf = tf.compat.v1
-    tf.layers = layers
-    tf.disable_eager_execution()
 
 
 class BurgersPDE(PDE):
@@ -44,12 +36,10 @@ class BurgersPDE(PDE):
 
     def predict(self, n, initial_worldstate, target_worldstate, trainable):
         b1, b2 = initial_worldstate.burgers, target_worldstate.burgers
-        center_age = (b1.age + b2.age) / 2
         with tf.variable_scope("OP%d" % n):
             predicted_tensor = op_resnet(b1.velocity.data, b2.velocity.data)
-        new_field = b1.copied_with(velocity=predicted_tensor, age=center_age)
-        result = initial_worldstate.state_replaced(new_field)
-        return result
+        new_field = b1.copied_with(velocity=predicted_tensor, age=(b1.age + b2.age) / 2.)
+        return initial_worldstate.state_replaced(new_field)
 
 
 def op_resnet(initial, target, training=True, trainable=True, reuse=tf.AUTO_REUSE):

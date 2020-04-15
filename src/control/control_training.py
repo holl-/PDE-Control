@@ -5,11 +5,6 @@ from .pde.pde_base import collect_placeholders_channels
 from .sequences import StaggeredSequence, SkipSequence, LinearSequence
 from .hierarchy import PDEExecutor
 
-import tensorflow as tf
-if tf.__version__[0] == '2':
-    tf = tf.compat.v1
-    tf.disable_eager_execution()
-
 
 class ControlTraining(LearningApp):
 
@@ -52,7 +47,7 @@ class ControlTraining(LearningApp):
         self.info('Sequence class: %s' % sequence_class)
 
         # --- Set up PDE sequence ---
-        world = World(batch_size=None)
+        world = World(batch_size=batch_size)
         pde.create_pde(world, 'CFE' in trainable_networks, sequence_class != LinearSequence)  # TODO BATCH_SIZE=None
         world.state = pde.placeholder_state(world, 0)
         self.add_all_fields('GT', world.state, 0)
@@ -94,8 +89,8 @@ class ControlTraining(LearningApp):
         placeholders, channels = collect_placeholders_channels(in_states, trace_to_channel=trace_to_channel)
         data_load_dict = {p: c for p, c in zip(placeholders, channels)}
         self.set_data(data_load_dict,
-                      val=None if val_range is None else Dataset.load(datapath, val_range),  # PDE-specific
-                      train=None if train_range is None else Dataset.load(datapath, train_range))  # PDE-specific
+                      val=None if val_range is None else Dataset.load(datapath, val_range),
+                      train=None if train_range is None else Dataset.load(datapath, train_range))
         # --- Show all states in GUI ---
         for i, (placeholder, channel) in enumerate(zip(placeholders, channels)):
             def fetch(i=i): return self.viewed_batch[i]
