@@ -28,7 +28,7 @@ $ pip install PDE-Control/PhiFlow/[gui] jupyterlab tensorflow==1.14.0 matplotlib
 This repository contains a revised version of the code used in the ICLR paper, now based on Φ<sub>Flow</sub> 1.0.
 The new version features well-documented Jupyter notebooks to reproduce the experiments.
 
-The original code is based on an old version of Φ<sub>Flow</sub> and will be available in `/legacy` before the ICLR 2020 conference.
+The original code is based on an old version of Φ<sub>Flow</sub> and is available in `/legacy` before the ICLR 2020 conference.
 
 **Experiment 1: Burgers equation**
 
@@ -41,7 +41,12 @@ In the browser, navigate into the `notebooks` directory and open `Control Burger
 
 **Experiment 2: Shape transition**
 
-Coming soon.
+Open `Shape Transitions.ipynb` using Jupyter notebook (as explained for Experiment 1).
+We recommend reading through `Control Burgers.ipynb` first.
+
+**Other Experiments**
+
+Only the above mentioned experiments are available as Jupyter notebooks. The code reproducing the other experiments can be found in `/legacy`.
 
 
 ## Extending the method to other equations
